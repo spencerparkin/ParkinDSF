@@ -101,7 +101,7 @@ void DsfDataType_Free(void* value)
 {
 	DsfData* dsf = (DsfData*)value;
 
-	RedisModuleDictIter* iter = RedisModule_DictIteratorStart(dsf->dict, "", NULL);
+	RedisModuleDictIter* iter = RedisModule_DictIteratorStartC(dsf->dict, "^", NULL, 0);
 	for(;;)
 	{
 		DsfElement* element = NULL;
