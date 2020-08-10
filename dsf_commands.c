@@ -58,14 +58,13 @@ static int DsfCommand_FindDsfDataType(RedisModuleCtx* ctx, RedisModuleString* ke
             *dsf = RedisModule_ModuleTypeGetValue(*key);
     }
 
-    // Note that we intentially leave the key open, because the caller
-    // may want to use the opened key.  Also, the caller need not close
-    // the key either, because we are using auto-memory management.
     return REDISMODULE_OK;
 }
 
 int DsfCommand_Add(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 {
+    RedisModule_AutoMemory(ctx);
+
     if(argc < 3)
         return RedisModule_WrongArity(ctx);
 
@@ -85,11 +84,15 @@ int DsfCommand_Add(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 
 int DsfCommand_Remove(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 {
+    RedisModule_AutoMemory(ctx);
+
     return REDISMODULE_OK;
 }
 
 int DsfCommand_AreComembers(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 {
+    RedisModule_AutoMemory(ctx);
+
     if(argc != 4)
         return RedisModule_WrongArity(ctx);
 
@@ -107,6 +110,8 @@ int DsfCommand_AreComembers(RedisModuleCtx* ctx, RedisModuleString** argv, int a
 
 int DsfCommand_IsMember(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 {
+    RedisModule_AutoMemory(ctx);
+
     if(argc != 3)
         return RedisModule_WrongArity(ctx);
 
@@ -124,6 +129,8 @@ int DsfCommand_IsMember(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 
 int DsfCommand_Union(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 {
+    RedisModule_AutoMemory(ctx);
+
     if(argc != 4)
         return RedisModule_WrongArity(ctx);
 
@@ -141,6 +148,8 @@ int DsfCommand_Union(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 
 int DsfCommand_Cardinality(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 {
+    RedisModule_AutoMemory(ctx);
+
     if(argc != 2)
         return RedisModule_WrongArity(ctx);
 
@@ -154,6 +163,8 @@ int DsfCommand_Cardinality(RedisModuleCtx* ctx, RedisModuleString** argv, int ar
 
 int DsfCommand_Size(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 {
+    RedisModule_AutoMemory(ctx);
+
     if(argc != 2)
         return RedisModule_WrongArity(ctx);
 
@@ -168,6 +179,8 @@ int DsfCommand_Size(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 
 int DsfCommand_FindSet(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 {
+    RedisModule_AutoMemory(ctx);
+
     // TODO: Reply with array here.  If we're RESP3, reply with set?
     return REDISMODULE_OK;
 }

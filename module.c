@@ -4,8 +4,6 @@
 
 int RedisModule_OnLoad(RedisModuleCtx* ctx)
 {
-	RedisModule_AutoMemory(ctx);
-
 	if(REDISMODULE_ERR == RedisModule_Init(ctx, DSF_MODULE_NAME, DSF_MODULE_VERSION, REDISMODULE_APIVER_1))
 		return REDISMODULE_ERR;
 
