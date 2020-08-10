@@ -154,7 +154,58 @@ int DsfDataType_AddMember(DsfData* dsf, RedisModuleString* member, RedisModuleCt
 
 int DsfDataType_RemoveMember(DsfData* dsf, RedisModuleString* member, RedisModuleCtx* ctx)
 {
-	return 0;
+	RedisModuleDict* set = NULL;
+
+	if(REDISMODULE_ERR == DsfDataType_FindSet(dsf, member, &set, ctx))
+		return REDISMODULE_ERR;
+
+	DsfElement* element = RedisModule_DictGet(dsf->dict, member, NULL);
+	
+	if(RedisModule_DictSize(set) > 1)
+	{
+		// The doomed element may or may not be the set represenative.
+		// In any case, choose a safe alternative for representing the set.
+		// This also removes any references to the doomed element.
+		DsfElement* setRep = NULL;
+		RedisModuleDictIter* iter = RedisModule_DictIteratorStartC(set, "^", NULL, 0);
+		for(;;)
+		{
+			RedisModuleString* key = RedisModule_DictNext(ctx, iter, (void**)&setRep);
+			if(!key)
+				break;
+
+			if(setRep != element)
+				break;
+		}
+
+		if(setRep)
+		{
+			RedisModule_DictIteratorReseekC(iter, "^", NULL, 0);
+			for(;;)
+			{
+				DsfElement* otherElement = NULL;
+				RedisModuleString* key = RedisModule_DictNext(ctx, iter, (void**)&otherElement);
+				if(!key)
+					break;
+
+				if(otherElement != element)
+				{
+					otherElement->rep = setRep;
+					otherElement->rank = 1;
+				}
+			}
+
+			setRep->rank = (RedisModule_DictSize(set) == 2) ? 1 : 2;
+		}
+
+		RedisModule_DictIteratorStop(iter);
+	}
+
+	RedisModule_FreeDict(ctx, set);	
+	DsfDataType_FreeElement(element);
+	RedisModule_DictDel(dsf->dict, member, NULL);
+
+	return REDISMODULE_OK;
 }
 
 int DsfDataType_AreComembers(DsfData* dsf, RedisModuleString* memberA, RedisModuleString* memberB, int* result, RedisModuleCtx* ctx)
@@ -226,3 +277,30 @@ int DsfDataType_Union(DsfData* dsf, RedisModuleString* memberA, RedisModuleStrin
 	return REDISMODULE_OK;
 }
 
+// Note that the caller is to free the returned dictionary.
+int DsfDataType_FindSet(DsfData* dsf, RedisModuleString* member, RedisModuleDict** set, RedisModuleCtx* ctx)
+{
+	*set = NULL;
+
+	DsfElement* element = RedisModule_DictGet(dsf->dict, member, NULL);
+	if(element == NULL)
+		return DsfDataType_ReplyErrorAboutMember(ctx, "ERR %s does not exist", member);
+
+	*set = RedisModule_CreateDict(ctx);
+
+	RedisModuleDictIter* iter = RedisModule_DictIteratorStartC(dsf->dict, "^", NULL, 0);
+	for(;;)
+	{
+		DsfElement* otherElement = NULL;
+		RedisModuleString* key = RedisModule_DictNext(ctx, iter, (void**)&otherElement);
+		if(!key)
+			break;
+
+		if(DsfElement_SameSet(element, otherElement))
+			RedisModule_DictSet(*set, key, otherElement);
+	}
+
+	RedisModule_DictIteratorStop(iter);
+
+	return REDISMODULE_OK;
+}

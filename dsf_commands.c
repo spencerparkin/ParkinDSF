@@ -97,6 +97,17 @@ int DsfCommand_Remove(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 {
     RedisModule_AutoMemory(ctx);
 
+    if(argc != 3)
+        return RedisModule_WrongArity(ctx);
+    
+    DsfData* dsf = NULL;
+    RedisModuleKey* key = NULL;
+    if(REDISMODULE_ERR == DsfCommand_FindDsfDataType(ctx, argv[1], &key, &dsf, 0, REDISMODULE_WRITE))
+        return REDISMODULE_ERR;
+    
+    if(REDISMODULE_ERR == DsfDataType_RemoveMember(dsf, argv[2], ctx))
+        return REDISMODULE_ERR;
+
     return RedisModule_ReplyWithSimpleString(ctx, "OK");
 }
 
@@ -192,6 +203,33 @@ int DsfCommand_FindSet(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 {
     RedisModule_AutoMemory(ctx);
 
-    // TODO: Reply with array here.  If we're RESP3, reply with set?
-    return RedisModule_ReplyWithSimpleString(ctx, "OK");
+    if(argc != 3)
+        return RedisModule_WrongArity(ctx);
+
+    DsfData* dsf = NULL;
+    RedisModuleKey* key = NULL;
+    if(REDISMODULE_ERR == DsfCommand_FindDsfDataType(ctx, argv[1], &key, &dsf, 0, REDISMODULE_READ))
+        return REDISMODULE_ERR;
+
+    RedisModuleDict* set = NULL;
+    if(REDISMODULE_ERR == DsfDataType_FindSet(dsf, argv[2], &set, ctx))
+        return REDISMODULE_ERR;
+
+    uint64_t size = RedisModule_DictSize(set);
+    RedisModule_ReplyWithArray(ctx, size);
+
+    RedisModuleDictIter* iter = RedisModule_DictIteratorStartC(set, "^", NULL, 0);
+	for(;;)
+	{
+		RedisModuleString* key = RedisModule_DictNext(ctx, iter, NULL);
+		if(!key)
+			break;
+
+        const char* keyCStr = RedisModule_StringPtrLen(key, NULL);
+		RedisModule_ReplyWithSimpleString(ctx, keyCStr);
+	}
+
+	RedisModule_DictIteratorStop(iter);
+    RedisModule_FreeDict(ctx, set);
+    return REDISMODULE_OK;
 }
