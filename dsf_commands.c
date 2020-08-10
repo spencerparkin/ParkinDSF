@@ -10,23 +10,23 @@ int DsfCommands_Register(RedisModuleCtx* ctx)
         return REDISMODULE_ERR;
 
     // Due to path compression, technically we both read and write with this command, but Redis is not affected by the writing at all.
-    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFARECOMEMBERS", DsfCommand_AreComembers, "read fast", 1, 1, 1))
+    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFARECOMEMBERS", DsfCommand_AreComembers, "readonly fast", 1, 1, 1))
         return REDISMODULE_ERR;
 
-    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFISMEMBER", DsfCommand_IsMember, "read fast", 1, 1, 1))
+    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFISMEMBER", DsfCommand_IsMember, "readonly fast", 1, 1, 1))
         return REDISMODULE_ERR;
 
     // We also read-write here, but Redis is none-the-wiser of it.
-    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFUNION", DsfCommand_Union, "read fast", 1, 1, 1))
+    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFUNION", DsfCommand_Union, "readonly fast", 1, 1, 1))
         return REDISMODULE_ERR;
 
-    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFCARD", DsfCommand_Cardinality, "read fast", 1, 1, 1))
+    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFCARD", DsfCommand_Cardinality, "readonly fast", 1, 1, 1))
         return REDISMODULE_ERR;
 
-    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFSIZE", DsfCommand_Size, "read fast", 1, 1, 1))
+    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFSIZE", DsfCommand_Size, "readonly fast", 1, 1, 1))
         return REDISMODULE_ERR;
 
-    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFFINDSET", DsfCommand_FindSet, "read", 1, 1, 1))
+    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFFINDSET", DsfCommand_FindSet, "readonly", 1, 1, 1))
         return REDISMODULE_ERR;
 
     return REDISMODULE_OK;
@@ -38,14 +38,20 @@ static int DsfCommand_FindDsfDataType(RedisModuleCtx* ctx, RedisModuleString* ke
 
     *key = RedisModule_OpenKey(ctx, keyName, mode);
     if(!*key)
-        return RedisModule_ReplyWithError(ctx, "ERR Failed to open key");   // TODO: Is there a formatted reply API call?  Can I just make one?
+    {
+        RedisModule_ReplyWithError(ctx, "ERR Failed to open key");   // TODO: Is there a formatted reply API call?  Can I just make one?
+        return REDISMODULE_ERR;
+    }
     else
     {
         int keyType = RedisModule_KeyType(*key);
         if(keyType == REDISMODULE_KEYTYPE_EMPTY)
         {
             if(!canCreate)
-                return RedisModule_ReplyWithError(ctx, "ERR key does not exist");
+            {
+                RedisModule_ReplyWithError(ctx, "ERR key does not exist");
+                return REDISMODULE_ERR;
+            }
             else
             {
                 *dsf = DsfDataType_Create();
@@ -53,9 +59,14 @@ static int DsfCommand_FindDsfDataType(RedisModuleCtx* ctx, RedisModuleString* ke
             }
         }
         else if(RedisModule_ModuleTypeGetType(*key) != dsfDataType)
-            return RedisModule_ReplyWithError(ctx, REDISMODULE_ERRORMSG_WRONGTYPE);
+        {
+            RedisModule_ReplyWithError(ctx, REDISMODULE_ERRORMSG_WRONGTYPE);
+            return REDISMODULE_ERR;
+        }
         else
+        {
             *dsf = RedisModule_ModuleTypeGetValue(*key);
+        }
     }
 
     return REDISMODULE_OK;
@@ -79,14 +90,14 @@ int DsfCommand_Add(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 
     RedisModule_CloseKey(key);
 
-    return REDISMODULE_OK;
+    return RedisModule_ReplyWithSimpleString(ctx, "OK");
 }
 
 int DsfCommand_Remove(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 {
     RedisModule_AutoMemory(ctx);
 
-    return REDISMODULE_OK;
+    return RedisModule_ReplyWithSimpleString(ctx, "OK");
 }
 
 int DsfCommand_AreComembers(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
@@ -143,7 +154,7 @@ int DsfCommand_Union(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
         return REDISMODULE_ERR;
 
     RedisModule_CloseKey(key);
-    return REDISMODULE_OK;
+    return RedisModule_ReplyWithSimpleString(ctx, "OK");
 }
 
 int DsfCommand_Cardinality(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
@@ -182,5 +193,5 @@ int DsfCommand_FindSet(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
     RedisModule_AutoMemory(ctx);
 
     // TODO: Reply with array here.  If we're RESP3, reply with set?
-    return REDISMODULE_OK;
+    return RedisModule_ReplyWithSimpleString(ctx, "OK");
 }

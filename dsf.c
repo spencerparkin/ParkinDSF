@@ -35,7 +35,8 @@ static int DsfDataType_ReplyErrorAboutMember(RedisModuleCtx* ctx, const char* fm
 	const char* memberCStr = RedisModule_StringPtrLen(member, NULL);
 	RedisModuleString* errorMsg = RedisModule_CreateStringPrintf(ctx, fmt, memberCStr);
 	const char* errorMsgCStr = RedisModule_StringPtrLen(errorMsg, NULL);
-	return RedisModule_ReplyWithError(ctx, errorMsgCStr);
+	RedisModule_ReplyWithError(ctx, errorMsgCStr);
+	return REDISMODULE_ERR;
 }
 
 static int DsfDataType_ReplyErrorAboutMembers(RedisModuleCtx* ctx, const char* fmt, RedisModuleString* memberA, RedisModuleString* memberB)
@@ -44,7 +45,8 @@ static int DsfDataType_ReplyErrorAboutMembers(RedisModuleCtx* ctx, const char* f
 	const char* memberBCStr = RedisModule_StringPtrLen(memberB, NULL);
 	RedisModuleString* errorMsg = RedisModule_CreateStringPrintf(ctx, fmt, memberACStr, memberBCStr);
 	const char* errorMsgCStr = RedisModule_StringPtrLen(errorMsg, NULL);
-	return RedisModule_ReplyWithError(ctx, errorMsgCStr);
+	RedisModule_ReplyWithError(ctx, errorMsgCStr);
+	return REDISMODULE_ERR;
 }
 
 int DsfDataType_Register(RedisModuleCtx* ctx)
@@ -100,7 +102,7 @@ void DsfDataType_Free(void* value)
 	DsfData* dsf = (DsfData*)value;
 
 	RedisModuleDictIter* iter = RedisModule_DictIteratorStart(dsf->dict, "", NULL);
-	while(1)
+	for(;;)
 	{
 		DsfElement* element = NULL;
 		void* key = (DsfElement*)RedisModule_DictNextC(iter, NULL, (void**)&element);
@@ -144,6 +146,8 @@ int DsfDataType_AddMember(DsfData* dsf, RedisModuleString* member, RedisModuleCt
 
 	element = DsfDataType_CreateElement();
 	RedisModule_DictSet(dsf->dict, member, element);
+
+	dsf->card++;
 
 	return REDISMODULE_OK;
 }
@@ -216,6 +220,8 @@ int DsfDataType_Union(DsfData* dsf, RedisModuleString* memberA, RedisModuleStrin
 			elementA->rank++;
 		}
 	}
+
+	dsf->card--;
 
 	return REDISMODULE_OK;
 }
