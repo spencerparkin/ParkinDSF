@@ -34,7 +34,6 @@ int DsfCommands_Register(RedisModuleCtx* ctx)
 
 static int DsfCommand_FindDsfDataType(RedisModuleCtx* ctx, RedisModuleString* keyName, RedisModuleKey** key, DsfData** dsf, int canCreate, int mode)
 {
-    /*
     *dsf = NULL;
 
     *key = RedisModule_OpenKey(ctx, keyName, mode);
@@ -57,9 +56,8 @@ static int DsfCommand_FindDsfDataType(RedisModuleCtx* ctx, RedisModuleString* ke
             return RedisModule_ReplyWithError(ctx, REDISMODULE_ERRORMSG_WRONGTYPE);
         else
             *dsf = RedisModule_ModuleTypeGetValue(*key);
-        }
     }
-*/
+
     // Note that we intentially leave the key open, because the caller
     // may want to use the opened key.  Also, the caller need not close
     // the key either, because we are using auto-memory management.
