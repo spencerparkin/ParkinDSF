@@ -77,11 +77,74 @@ int DsfDataType_Register(RedisModuleCtx* ctx)
 
 void* DsfDataType_RdbLoad(RedisModuleIO* rdb, int encver)
 {
-	return NULL;
+	if(encver != 1)
+		return NULL;
+
+	DsfData* dsf = DsfDataType_Create();
+
+	uint64_t size = RedisModule_LoadUnsigned(rdb);
+	dsf->card = RedisModule_LoadUnsigned(rdb);
+
+	DsfElement** elementArray = RedisModule_Alloc(size * sizeof(DsfElement*));
+
+	for(uint64_t i = 0; i < size; i++)
+	{
+		RedisModuleString* key = RedisModule_LoadString(rdb);
+		DsfElement* element = DsfDataType_CreateElement();
+		element->rank = RedisModule_LoadUnsigned(rdb);
+		RedisModule_DictSet(dsf->dict, key, element);
+		elementArray[i] = element;
+	}
+
+	for(uint64_t i = 0; i < size; i++)
+	{
+		DsfElement* element = elementArray[i];
+		RedisModuleString* repKey = RedisModule_LoadString(rdb);
+		element->rep = RedisModule_DictGet(dsf->dict, repKey, NULL);
+	}
+
+	RedisModule_Free(elementArray);
+
+	return dsf;
 }
 
 void DsfDataType_RdbSave(RedisModuleIO* rdb, void* value)
 {
+	DsfData* dsf = (DsfData*)value;
+
+	uint64_t size = RedisModule_DictSize(dsf->dict);
+	RedisModule_SaveUnsigned(rdb, size);
+	RedisModule_SaveUnsigned(rdb, dsf->card);
+
+	RedisModuleDict* repMap = RedisModule_CreateDict(NULL);
+	RedisModuleDictIter* iter = RedisModule_DictIteratorStartC(dsf->dict, "^", NULL, 0);
+	for(;;)
+	{
+		DsfElement* element = NULL;
+		RedisModuleString* key = RedisModule_DictNext(NULL, iter, (void**)&element);
+		if(!key)
+			break;
+
+		RedisModule_SaveString(rdb, key);
+		RedisModule_SaveUnsigned(rdb, element->rank);
+		RedisModule_DictSetC(repMap, &element->rep, sizeof(DsfElement*), key);
+	}
+
+	RedisModule_DictIteratorReseekC(iter, "^", NULL, 0);
+
+	for(;;)
+	{
+		DsfElement* element = NULL;
+		RedisModuleString* key = RedisModule_DictNext(NULL, iter, (void**)&element);
+		if(!key)
+			break;
+		
+		RedisModuleString* repKey = RedisModule_DictGetC(dsf->dict, &element->rep, sizeof(DsfElement*), NULL);
+		RedisModule_SaveString(rdb, repKey);
+	}
+
+	RedisModule_DictIteratorStop(iter);
+	RedisModule_FreeDict(NULL, repMap);
 }
 
 void DsfDataType_Rewrite(RedisModuleIO* aof, RedisModuleString* key, void* value)
