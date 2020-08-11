@@ -18,3 +18,16 @@ $(LIB): $(OBJS)
 
 clean:
 	rm -rf $(OBJS) $(LIB)
+
+dep:
+	makedepend -- $(CCFLAGS) -- $(SRCS)
+	rm Makefile.bak
+
+# DO NOT DELETE
+
+module.o: module.h ../redis/src/redismodule.h /usr/include/stdint.h
+module.o: /usr/include/stdio.h dsf.h dsf_commands.h
+dsf.o: dsf.h ../redis/src/redismodule.h /usr/include/stdint.h
+dsf.o: /usr/include/stdio.h /usr/include/stdlib.h
+dsf_commands.o: dsf_commands.h ../redis/src/redismodule.h
+dsf_commands.o: /usr/include/stdint.h /usr/include/stdio.h dsf.h
