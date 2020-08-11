@@ -1,5 +1,6 @@
 #include "dsf.h"
 #include <stdlib.h>
+#include <string.h>
 
 RedisModuleType* dsfDataType = NULL;
 
@@ -100,7 +101,10 @@ void* DsfDataType_RdbLoad(RedisModuleIO* rdb, int encver)
 	{
 		DsfElement* element = elementArray[i];
 		RedisModuleString* repKey = RedisModule_LoadString(rdb);
-		element->rep = RedisModule_DictGet(dsf->dict, repKey, NULL);
+		size_t repKeyLen = 0;
+		RedisModule_StringPtrLen(repKey, &repKeyLen);
+		if(repKeyLen > 0)
+			element->rep = RedisModule_DictGet(dsf->dict, repKey, NULL);
 	}
 
 	RedisModule_Free(elementArray);
@@ -127,10 +131,13 @@ void DsfDataType_RdbSave(RedisModuleIO* rdb, void* value)
 
 		RedisModule_SaveString(rdb, key);
 		RedisModule_SaveUnsigned(rdb, element->rank);
-		RedisModule_DictSetC(repMap, &element->rep, sizeof(DsfElement*), key);
+		const char* keyCStr = RedisModule_StringPtrLen(key, NULL);
+		RedisModule_DictSetC(repMap, &element, sizeof(DsfElement*), RedisModule_CreateString(NULL, keyCStr, strlen(keyCStr)));
 	}
 
 	RedisModule_DictIteratorReseekC(iter, "^", NULL, 0);
+	DsfElement* nullPtr = NULL;
+	RedisModule_DictSetC(repMap, &nullPtr, sizeof(DsfElement*), RedisModule_CreateString(NULL, "", 0));
 
 	for(;;)
 	{
@@ -139,11 +146,23 @@ void DsfDataType_RdbSave(RedisModuleIO* rdb, void* value)
 		if(!key)
 			break;
 		
-		RedisModuleString* repKey = RedisModule_DictGetC(dsf->dict, &element->rep, sizeof(DsfElement*), NULL);
+		RedisModuleString* repKey = RedisModule_DictGetC(repMap, &element->rep, sizeof(DsfElement*), NULL);
 		RedisModule_SaveString(rdb, repKey);
 	}
 
 	RedisModule_DictIteratorStop(iter);
+	iter = RedisModule_DictIteratorStartC(repMap, "^", NULL, 0);
+
+	for(;;)
+	{
+		RedisModuleString* repKey = NULL;
+		void* key = RedisModule_DictNextC(iter, NULL, (void**)&repKey);
+		if(!key)
+			break;
+
+		RedisModule_FreeString(NULL, repKey);
+	}
+
 	RedisModule_FreeDict(NULL, repMap);
 }
 
