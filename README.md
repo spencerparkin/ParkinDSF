@@ -15,7 +15,7 @@ All 3 elements are now members of their own singleton sets within the DSF.  To c
 
 ```
 > DSFCARD mydsf
-3
+(integer) 3
 ```
 
 The cardinality of the DSF is indeed 3, but we can reduce it to 2 by merging two of the singleton sets into one set...
@@ -68,7 +68,7 @@ Membership in the DSF can also be tested, and elements can be removed, but these
 DSFADD key element [element ...]
 ```
 
-Add one or more elements to the DSF at key.  If not DSF exists at the given key, and the key is free, a DSF is created.
+Add one or more elements to the DSF at key.  If no DSF exists at the given key, and the key is free, a DSF is created.
 
 ```
 DSFREMOVE key element
@@ -92,7 +92,7 @@ Test for membership within the DSF.  If the given element is in the DSF, a non-z
 DSFUNION key element1 element2
 ```
 
-Merge the two sets containing the given elements.  If both elements are members of the same set, no operation is performed.
+Merge the two sets containing the given elements.  If both elements are already members of the same set, no operation is performed.
 
 ```
 DSFCARD key
