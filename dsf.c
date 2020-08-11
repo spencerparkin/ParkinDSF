@@ -60,7 +60,7 @@ int DsfDataType_Register(RedisModuleCtx* ctx)
 		DSF_TYPE_METHOD_VERSION,
 		DsfDataType_RdbLoad,
 		DsfDataType_RdbSave,
-		DsfDataType_Rewrite,
+		DsfDataType_AofRewrite,
 		NULL,
 		NULL,
 		DsfDataType_Free,
@@ -112,14 +112,8 @@ void* DsfDataType_RdbLoad(RedisModuleIO* rdb, int encver)
 	return dsf;
 }
 
-void DsfDataType_RdbSave(RedisModuleIO* rdb, void* value)
+static RedisModuleDict* DsfDataType_CreateRepMap(DsfData* dsf)
 {
-	DsfData* dsf = (DsfData*)value;
-
-	uint64_t size = RedisModule_DictSize(dsf->dict);
-	RedisModule_SaveUnsigned(rdb, size);
-	RedisModule_SaveUnsigned(rdb, dsf->card);
-
 	RedisModuleDict* repMap = RedisModule_CreateDict(NULL);
 	RedisModuleDictIter* iter = RedisModule_DictIteratorStartC(dsf->dict, "^", NULL, 0);
 	for(;;)
@@ -129,30 +123,19 @@ void DsfDataType_RdbSave(RedisModuleIO* rdb, void* value)
 		if(!key)
 			break;
 
-		RedisModule_SaveString(rdb, key);
-		RedisModule_SaveUnsigned(rdb, element->rank);
 		const char* keyCStr = RedisModule_StringPtrLen(key, NULL);
 		RedisModule_DictSetC(repMap, &element, sizeof(DsfElement*), RedisModule_CreateString(NULL, keyCStr, strlen(keyCStr)));
 	}
 
-	RedisModule_DictIteratorReseekC(iter, "^", NULL, 0);
+	RedisModule_DictIteratorStop(iter);
 	DsfElement* nullPtr = NULL;
 	RedisModule_DictSetC(repMap, &nullPtr, sizeof(DsfElement*), RedisModule_CreateString(NULL, "", 0));
+	return repMap;
+}
 
-	for(;;)
-	{
-		DsfElement* element = NULL;
-		RedisModuleString* key = RedisModule_DictNext(NULL, iter, (void**)&element);
-		if(!key)
-			break;
-		
-		RedisModuleString* repKey = RedisModule_DictGetC(repMap, &element->rep, sizeof(DsfElement*), NULL);
-		RedisModule_SaveString(rdb, repKey);
-	}
-
-	RedisModule_DictIteratorStop(iter);
-	iter = RedisModule_DictIteratorStartC(repMap, "^", NULL, 0);
-
+static void DsfDataType_FreeRepMap(RedisModuleDict* repMap)
+{
+	RedisModuleDictIter* iter = RedisModule_DictIteratorStartC(repMap, "^", NULL, 0);
 	for(;;)
 	{
 		RedisModuleString* repKey = NULL;
@@ -166,8 +149,97 @@ void DsfDataType_RdbSave(RedisModuleIO* rdb, void* value)
 	RedisModule_FreeDict(NULL, repMap);
 }
 
-void DsfDataType_Rewrite(RedisModuleIO* aof, RedisModuleString* key, void* value)
+void DsfDataType_RdbSave(RedisModuleIO* rdb, void* value)
 {
+	DsfData* dsf = (DsfData*)value;
+
+	uint64_t size = RedisModule_DictSize(dsf->dict);
+	RedisModule_SaveUnsigned(rdb, size);
+	RedisModule_SaveUnsigned(rdb, dsf->card);
+
+	RedisModuleDictIter* iter = RedisModule_DictIteratorStartC(dsf->dict, "^", NULL, 0);
+	for(;;)
+	{
+		DsfElement* element = NULL;
+		RedisModuleString* key = RedisModule_DictNext(NULL, iter, (void**)&element);
+		if(!key)
+			break;
+
+		RedisModule_SaveString(rdb, key);
+		RedisModule_SaveUnsigned(rdb, element->rank);
+	}
+
+	RedisModule_DictIteratorReseekC(iter, "^", NULL, 0);
+	RedisModuleDict* repMap = DsfDataType_CreateRepMap(dsf);
+
+	for(;;)
+	{
+		DsfElement* element = NULL;
+		RedisModuleString* key = RedisModule_DictNext(NULL, iter, (void**)&element);
+		if(!key)
+			break;
+		
+		RedisModuleString* repKey = RedisModule_DictGetC(repMap, &element->rep, sizeof(DsfElement*), NULL);
+		RedisModule_SaveString(rdb, repKey);
+	}
+
+	RedisModule_DictIteratorStop(iter);
+	DsfDataType_FreeRepMap(repMap);
+}
+
+void DsfDataType_AofRewrite(RedisModuleIO* aof, RedisModuleString* key, void* value)
+{
+	DsfData* dsf = (DsfData*)value;
+
+	// This should never happen, but our algorithm here assumes
+	// a non-zero size, so let's just account for it anyway.
+	if(RedisModule_DictSize(dsf->dict) == 0)
+		return;
+
+	const char* keyCStr = RedisModule_StringPtrLen(key, NULL);
+	char commandArgs[1024];
+	strcpy(commandArgs, keyCStr);
+
+	RedisModuleDictIter* iter = RedisModule_DictIteratorStartC(dsf->dict, "^", NULL, 0);
+	for(;;)
+	{
+		RedisModuleString* memberKey = RedisModule_DictNext(NULL, iter, NULL);
+		if(!memberKey)
+			break;
+		
+		size_t memberKeyCStrLen = 0;
+		const char* memberKeyCStr = RedisModule_StringPtrLen(memberKey, &memberKeyCStrLen);
+		if(strlen(commandArgs) + memberKeyCStrLen < sizeof(commandArgs) + 2)
+		{
+			strcat(commandArgs, " ");
+			strcat(commandArgs, memberKeyCStr);
+		}
+		else
+		{
+			RedisModule_EmitAOF(aof, "dsfadd", commandArgs);
+			sprintf(commandArgs, "%s %s", keyCStr, memberKeyCStr);
+		}
+	}
+
+	RedisModule_EmitAOF(aof, "dsfadd", commandArgs);
+	RedisModule_DictIteratorReseekC(iter, "^", NULL, 0);
+	RedisModuleDict* repMap = DsfDataType_CreateRepMap(dsf);
+
+	for(;;)
+	{
+		DsfElement* element = NULL;
+		RedisModuleString* memberKey = RedisModule_DictNext(NULL, iter, (void**)&element);
+		if(!key)
+			break;
+
+		RedisModuleString* repKey = RedisModule_DictGetC(repMap, &element->rep, sizeof(DsfElement*), NULL);
+		const char* memberKeyCStr = RedisModule_StringPtrLen(memberKey, NULL);
+		const char* repKeyCStr = RedisModule_StringPtrLen(repKey, NULL);
+		RedisModule_EmitAOF(aof, "dsfunion", "%s %s %s", keyCStr, memberKeyCStr, repKeyCStr);
+	}
+
+	RedisModule_DictIteratorStop(iter);
+	DsfDataType_FreeRepMap(repMap);
 }
 
 size_t DsfDataType_MemUsage(void* value)

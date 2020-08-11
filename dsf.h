@@ -22,7 +22,7 @@ extern RedisModuleType* dsfDataType;
 int DsfDataType_Register(RedisModuleCtx* ctx);
 void* DsfDataType_RdbLoad(RedisModuleIO* rdb, int encver);
 void DsfDataType_RdbSave(RedisModuleIO* rdb, void* value);
-void DsfDataType_Rewrite(RedisModuleIO* aof, RedisModuleString* key, void* value);
+void DsfDataType_AofRewrite(RedisModuleIO* aof, RedisModuleString* key, void* value);
 size_t DsfDataType_MemUsage(void* value);
 void DsfDataType_Digest(RedisModuleDigest* digest, void* value);
 void DsfDataType_Free(void* value);
