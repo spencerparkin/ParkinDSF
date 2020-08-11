@@ -108,7 +108,9 @@ int DsfCommand_Remove(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
     if(REDISMODULE_ERR == DsfDataType_RemoveMember(dsf, argv[2], ctx))
         return REDISMODULE_ERR;
 
-    // TODO: Do we delete the key if the set becomes empty?
+    uint64_t size = RedisModule_DictSize(dsf->dict);
+    if(size == 0)
+        RedisModule_DeleteKey(key);
 
     return RedisModule_ReplyWithSimpleString(ctx, "OK");
 }
