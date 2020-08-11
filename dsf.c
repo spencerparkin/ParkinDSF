@@ -188,13 +188,14 @@ int DsfDataType_RemoveMember(DsfData* dsf, RedisModuleString* member, RedisModul
 				if(!key)
 					break;
 
-				if(otherElement != element)
+				if(otherElement != setRep)
 				{
 					otherElement->rep = setRep;
 					otherElement->rank = 1;
 				}
 			}
 
+			setRep->rep = NULL;
 			setRep->rank = (RedisModule_DictSize(set) == 2) ? 1 : 2;
 		}
 
