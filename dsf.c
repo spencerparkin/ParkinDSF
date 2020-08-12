@@ -459,3 +459,42 @@ int DsfDataType_FindSet(DsfData* dsf, RedisModuleString* member, RedisModuleDict
 
 	return REDISMODULE_OK;
 }
+
+int DsfDataType_CreateDump(DsfData* dsf, RedisModuleDict*** dump, RedisModuleCtx* ctx)
+{
+	*dump = RedisModule_Alloc(dsf->card * sizeof(RedisModuleDict*));
+	uint64_t i = 0;
+	
+	RedisModuleDictIter* iter = RedisModule_DictIteratorStartC(dsf->dict, "^", NULL, 0);
+	for(;;)
+	{
+		DsfElement* element = NULL;
+		RedisModuleString* key = RedisModule_DictNext(ctx, iter, (void**)&element);
+		if(!key)
+			break;
+
+		if(element->rep == NULL)
+		{
+			if(i >= dsf->card)
+			{
+				RedisModule_ReplyWithError(ctx, "ERR dump overflow should never happen");
+				return REDISMODULE_ERR;
+			}
+
+			if(REDISMODULE_ERR == DsfDataType_FindSet(dsf, key, &(*dump)[i++], ctx))
+				return REDISMODULE_ERR;
+		}
+	}
+
+	RedisModule_DictIteratorStop(iter);
+
+	return REDISMODULE_OK;
+}
+
+void DsfDataType_FreeDump(DsfData* dsf, RedisModuleDict** dump, RedisModuleCtx* ctx)
+{
+	for(uint64_t i = 0; i < dsf->card; i++)
+		RedisModule_FreeDict(ctx, dump[i]);
+	
+	RedisModule_Free(dump);
+}

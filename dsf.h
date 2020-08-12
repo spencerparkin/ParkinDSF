@@ -35,3 +35,5 @@ int DsfDataType_AreComembers(DsfData* dsf, RedisModuleString* memberA, RedisModu
 int DsfDataType_IsMember(DsfData* dsf, RedisModuleString* member, int* result, RedisModuleCtx* ctx);
 int DsfDataType_Union(DsfData* dsf, RedisModuleString* memberA, RedisModuleString* memberB, RedisModuleCtx* ctx);
 int DsfDataType_FindSet(DsfData* dsf, RedisModuleString* member, RedisModuleDict** set, RedisModuleCtx* ctx);
+int DsfDataType_CreateDump(DsfData* dsf, RedisModuleDict*** dump, RedisModuleCtx* ctx);
+void DsfDataType_FreeDump(DsfData* dsf, RedisModuleDict** dump, RedisModuleCtx* ctx);

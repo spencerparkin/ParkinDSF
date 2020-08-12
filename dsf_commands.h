@@ -11,3 +11,4 @@ int DsfCommand_Union(RedisModuleCtx* ctx, RedisModuleString** argv, int argc);
 int DsfCommand_Cardinality(RedisModuleCtx* ctx, RedisModuleString** argv, int argc);
 int DsfCommand_Size(RedisModuleCtx* ctx, RedisModuleString** argv, int argc);
 int DsfCommand_FindSet(RedisModuleCtx* ctx, RedisModuleString** argv, int argc);
+int DsfCommand_Dump(RedisModuleCtx* ctx, RedisModuleString** argv, int argc);

@@ -112,8 +112,16 @@ DSFFINDSET key element
 
 Return all elements in the set of the DSF containing the given element.
 
+```
+DSFDUMP key
+```
+
+Return the entire structure of the DSF as a list of lists.
+
 ## Note About Time-Complexity
 
 Co-membership and union are the key features here, and their time-complexity is `O(ln N)`, where `N` is the number of elements within the DSF.  This may, however, seem disappointing.  These operations are said to have, on average, `O(1)` time-complexity.  This is true.  For Redis, however, we must tell it what elements we're interested in as strings.  Before Redis can apply DSF-algorithms, it must dereference those strings, and this is where the `O(ln N)` cost comes in.  For now, I'm not sure of a way around this.  In any case, the DSF data-structure should be fast enough for many applications.  Admittedly, I can't really think of any applications, but maybe you can.
 
 All that said, the find-set and removal commands were added for completeness, but they are inherently and relatively innefficient operations on a DSF, and should probably be avoided unless your DSFs aren't too big.  Both are `O(N ln N)`, as are the operations of saving and loading a DSF to/from disk.
+
+Beware: the dump command currently has worst-case time-complexity `O(N^2)`.  It's provided mainly for debugging purposes.

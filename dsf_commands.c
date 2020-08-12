@@ -29,6 +29,9 @@ int DsfCommands_Register(RedisModuleCtx* ctx)
     if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFFINDSET", DsfCommand_FindSet, "readonly", 1, 1, 1))
         return REDISMODULE_ERR;
 
+    if(REDISMODULE_ERR == RedisModule_CreateCommand(ctx, "DSFDUMP", DsfCommand_Dump, "readonly", 1, 1, 1))
+        return REDISMODULE_ERR;
+
     return REDISMODULE_OK;
 }
 
@@ -203,6 +206,25 @@ int DsfCommand_Size(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
     return RedisModule_ReplyWithLongLong(ctx, size);
 }
 
+static void DsfCommand_ReplyWithSet(RedisModuleDict* set, RedisModuleCtx* ctx)
+{
+    uint64_t size = RedisModule_DictSize(set);
+    RedisModule_ReplyWithArray(ctx, size);
+
+    RedisModuleDictIter* iter = RedisModule_DictIteratorStartC(set, "^", NULL, 0);
+	for(;;)
+	{
+		RedisModuleString* key = RedisModule_DictNext(ctx, iter, NULL);
+		if(!key)
+			break;
+
+        const char* keyCStr = RedisModule_StringPtrLen(key, NULL);
+		RedisModule_ReplyWithSimpleString(ctx, keyCStr);
+	}
+
+	RedisModule_DictIteratorStop(iter);
+}
+
 int DsfCommand_FindSet(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 {
     RedisModule_AutoMemory(ctx);
@@ -219,21 +241,36 @@ int DsfCommand_FindSet(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
     if(REDISMODULE_ERR == DsfDataType_FindSet(dsf, argv[2], &set, ctx))
         return REDISMODULE_ERR;
 
-    uint64_t size = RedisModule_DictSize(set);
-    RedisModule_ReplyWithArray(ctx, size);
-
-    RedisModuleDictIter* iter = RedisModule_DictIteratorStartC(set, "^", NULL, 0);
-	for(;;)
-	{
-		RedisModuleString* key = RedisModule_DictNext(ctx, iter, NULL);
-		if(!key)
-			break;
-
-        const char* keyCStr = RedisModule_StringPtrLen(key, NULL);
-		RedisModule_ReplyWithSimpleString(ctx, keyCStr);
-	}
-
-	RedisModule_DictIteratorStop(iter);
+    DsfCommand_ReplyWithSet(set, ctx);
     RedisModule_FreeDict(ctx, set);
+    return REDISMODULE_OK;
+}
+
+int DsfCommand_Dump(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
+{
+    RedisModule_AutoMemory(ctx);
+
+    if(argc != 2)
+        return RedisModule_WrongArity(ctx);
+
+    DsfData* dsf = NULL;
+    RedisModuleKey* key = NULL;
+    if(REDISMODULE_ERR == DsfCommand_FindDsfDataType(ctx, argv[1], &key, &dsf, 0, REDISMODULE_READ))
+        return REDISMODULE_ERR;
+
+    RedisModuleDict** dump = NULL;
+    if(REDISMODULE_ERR == DsfDataType_CreateDump(dsf, &dump, ctx))
+        return REDISMODULE_ERR;
+
+    RedisModule_ReplyWithArray(ctx, dsf->card);
+
+    for(uint64_t i = 0; i < dsf->card; i++)
+    {
+        RedisModuleDict* set = dump[i];
+        DsfCommand_ReplyWithSet(set, ctx);
+    }
+
+    DsfDataType_FreeDump(dsf, dump, ctx);
+
     return REDISMODULE_OK;
 }

@@ -33,3 +33,7 @@
 
 # VS Code
 .vscode/
+
+# Redis
+*.rdb
+*.aof
