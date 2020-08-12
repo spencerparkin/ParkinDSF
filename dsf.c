@@ -187,6 +187,7 @@ void DsfDataType_RdbSave(RedisModuleIO* rdb, void* value)
 	DsfDataType_FreeRepMap(repMap);
 }
 
+// TODO: This routine has yet to be tested.  I'm not sure how to get Redis to call it.
 void DsfDataType_AofRewrite(RedisModuleIO* aof, RedisModuleString* key, void* value)
 {
 	DsfData* dsf = (DsfData*)value;
