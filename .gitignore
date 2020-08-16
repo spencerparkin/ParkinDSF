@@ -31,9 +31,6 @@
 *.out
 *.app
 
-# VS Code
-.vscode/
-
 # Redis
 *.rdb
 *.aof
